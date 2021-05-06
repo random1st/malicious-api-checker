@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  malicious-api-checker
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 1024Mb
+Parameters:
+  GoogleWebriskApiKey:
+    Type: String
+  GoogleSafebrowsingApiKey:
+    Type: String
+  SlackWebhookUrl:
+    Type: String
+  DynamoDbTable:
+    Type: String
+
+
+Resources:
+  MaliciousAPIChecker:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: malicious-api-checker/
+      Handler: malicious-api-checker
+      Runtime: go1.x
+      Events:
+        ScheduledCheck:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+      Environment:
+        Variables:
+          GOOGLE_WEBRISK_API_KEY: !Ref GoogleWebriskApiKey
+          GOOGLE_SAFEBROWSING_API_KEY: !Ref GoogleSafebrowsingApiKey
+          SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
+          DYNAMODB_TABLE: !Ref DynamoDbTable
+
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDbTable
+
+  CheckedUrlsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDbTable
+      AttributeDefinitions:
+        - AttributeName: url
+          AttributeType: S
+      KeySchema:
+        - AttributeName: url
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
